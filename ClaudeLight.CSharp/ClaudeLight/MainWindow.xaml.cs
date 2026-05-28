@@ -3,6 +3,8 @@ using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using ClaudeLight.Models;
+using Point = System.Windows.Point;
+using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 
 namespace ClaudeLight;
 
