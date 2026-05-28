@@ -6,13 +6,12 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v8.0": {
-      "ClaudeLight.Clean/1.0.0": {
+      "ClaudeLight.CLI/1.0.0": {
         "dependencies": {
-          "ClaudeLight.CLI": "1.0.0",
           "System.Text.Json": "10.0.8"
         },
         "runtime": {
-          "ClaudeLight.Clean.dll": {}
+          "ClaudeLight.CLI.dll": {}
         }
       },
       "System.IO.Pipelines/10.0.8": {
@@ -50,22 +49,11 @@
             "fileVersion": "10.0.826.23019"
           }
         }
-      },
-      "ClaudeLight.CLI/1.0.0": {
-        "dependencies": {
-          "System.Text.Json": "10.0.8"
-        },
-        "runtime": {
-          "ClaudeLight.CLI.dll": {
-            "assemblyVersion": "1.0.0",
-            "fileVersion": "1.0.0.0"
-          }
-        }
       }
     }
   },
   "libraries": {
-    "ClaudeLight.Clean/1.0.0": {
+    "ClaudeLight.CLI/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -90,11 +78,6 @@
       "sha512": "sha512-/fysUDkD7oFGaRPoA7IaFs0wRoO3GlwlCNq2P+xWZqxLy1R4cktRSKfMjJDy9ymS4grL7IDVdt8de8L9a0z55Q==",
       "path": "system.text.json/10.0.8",
       "hashPath": "system.text.json.10.0.8.nupkg.sha512"
-    },
-    "ClaudeLight.CLI/1.0.0": {
-      "type": "project",
-      "serviceable": false,
-      "sha512": ""
     }
   }
 }

@@ -59,6 +59,19 @@
         "build": {
           "buildTransitive/net8.0/System.Text.Json.targets": {}
         }
+      },
+      "ClaudeLight.CLI/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "System.Text.Json": "10.0.8"
+        },
+        "compile": {
+          "bin/placeholder/ClaudeLight.CLI.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/ClaudeLight.CLI.dll": {}
+        }
       }
     }
   },
@@ -200,10 +213,16 @@
         "system.text.json.nuspec",
         "useSharedDesignerContext.txt"
       ]
+    },
+    "ClaudeLight.CLI/1.0.0": {
+      "type": "project",
+      "path": "../ClaudeLight.CLI/ClaudeLight.CLI.csproj",
+      "msbuildProject": "../ClaudeLight.CLI/ClaudeLight.CLI.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net8.0": [
+      "ClaudeLight.CLI >= 1.0.0",
       "System.Text.Json >= 10.0.8"
     ]
   },
@@ -231,7 +250,11 @@
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "E:\\workplace\\vibe_claude_light\\ClaudeLight.CSharp\\ClaudeLight.CLI\\ClaudeLight.CLI.csproj": {
+              "projectPath": "E:\\workplace\\vibe_claude_light\\ClaudeLight.CSharp\\ClaudeLight.CLI\\ClaudeLight.CLI.csproj"
+            }
+          }
         }
       },
       "warningProperties": {

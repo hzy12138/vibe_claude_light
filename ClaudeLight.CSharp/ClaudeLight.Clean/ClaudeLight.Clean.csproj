@@ -11,4 +11,8 @@
     <PackageReference Include="System.Text.Json" Version="10.0.8" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ClaudeLight.CLI\ClaudeLight.CLI.csproj" />
+  </ItemGroup>
+
 </Project>

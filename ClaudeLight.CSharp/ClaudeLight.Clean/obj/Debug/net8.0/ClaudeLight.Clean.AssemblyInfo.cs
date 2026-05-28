@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ClaudeLight.Clean")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8a318ddb3478ae25057c9200ce7b5be00b27553a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d1f5c09258bb85eb38490e0ac367e61ea8e2d23f")]
 [assembly: System.Reflection.AssemblyProductAttribute("ClaudeLight.Clean")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ClaudeLight.Clean")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

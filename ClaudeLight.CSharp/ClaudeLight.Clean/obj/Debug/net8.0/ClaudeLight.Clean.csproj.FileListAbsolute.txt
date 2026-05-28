@@ -18,3 +18,8 @@ E:\workplace\vibe_claude_light\ClaudeLight.CSharp\ClaudeLight.Clean\obj\Debug\ne
 E:\workplace\vibe_claude_light\ClaudeLight.CSharp\ClaudeLight.Clean\obj\Debug\net8.0\ClaudeLight.Clean.pdb
 E:\workplace\vibe_claude_light\ClaudeLight.CSharp\ClaudeLight.Clean\obj\Debug\net8.0\ClaudeLight.Clean.genruntimeconfig.cache
 E:\workplace\vibe_claude_light\ClaudeLight.CSharp\ClaudeLight.Clean\obj\Debug\net8.0\ref\ClaudeLight.Clean.dll
+E:\workplace\vibe_claude_light\ClaudeLight.CSharp\ClaudeLight.Clean\bin\Debug\net8.0\ClaudeLight.CLI.deps.json
+E:\workplace\vibe_claude_light\ClaudeLight.CSharp\ClaudeLight.Clean\bin\Debug\net8.0\ClaudeLight.CLI.runtimeconfig.json
+E:\workplace\vibe_claude_light\ClaudeLight.CSharp\ClaudeLight.Clean\bin\Debug\net8.0\ClaudeLight.CLI.exe
+E:\workplace\vibe_claude_light\ClaudeLight.CSharp\ClaudeLight.Clean\bin\Debug\net8.0\ClaudeLight.CLI.dll
+E:\workplace\vibe_claude_light\ClaudeLight.CSharp\ClaudeLight.Clean\bin\Debug\net8.0\ClaudeLight.CLI.pdb
