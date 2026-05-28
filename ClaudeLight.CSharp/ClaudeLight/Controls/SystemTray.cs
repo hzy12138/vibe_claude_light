@@ -25,6 +25,19 @@ public class SystemTray : IDisposable
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("Toggle Layout", null, (_, _) => ToggleLayout());
         menu.Items.Add("Show/Hide All", null, (_, _) => ToggleVisibility());
+
+        var autoStartItem = new System.Windows.Forms.ToolStripMenuItem("Auto-Start")
+        {
+            Checked = ClaudeLight.Services.AutoStartManager.IsAutoStartEnabled()
+        };
+        autoStartItem.Click += (_, _) =>
+        {
+            var current = ClaudeLight.Services.AutoStartManager.IsAutoStartEnabled();
+            ClaudeLight.Services.AutoStartManager.SetAutoStart(!current);
+            autoStartItem.Checked = !current;
+        };
+        menu.Items.Add(autoStartItem);
+
         menu.Items.Add("-");
         menu.Items.Add("Exit", null, (_, _) => Exit());
 
