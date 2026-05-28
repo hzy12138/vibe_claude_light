@@ -4,3 +4,7 @@ obj/
 *.suo
 .vs/
 publish/
+
+__pycache__/
+*.pyc
+.pytest_cache/
