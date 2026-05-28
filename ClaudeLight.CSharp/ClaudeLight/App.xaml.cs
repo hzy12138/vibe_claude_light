@@ -1,13 +1,27 @@
-﻿using System.Configuration;
-using System.Data;
+using System.Threading;
 using System.Windows;
 
 namespace ClaudeLight;
 
-/// <summary>
-/// Interaction logic for App.xaml
-/// </summary>
 public partial class App : Application
 {
-}
+    private Mutex? _mutex;
 
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        _mutex = new Mutex(true, "ClaudeLight_SingleInstance", out bool createdNew);
+        if (!createdNew)
+        {
+            Shutdown();
+            return;
+        }
+
+        base.OnStartup(e);
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _mutex?.ReleaseMutex();
+        base.OnExit(e);
+    }
+}
