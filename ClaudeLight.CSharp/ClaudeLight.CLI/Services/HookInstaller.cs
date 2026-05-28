@@ -9,6 +9,25 @@ public static class HookInstaller
 {
     private const string HookMarker = "claude-light";
 
+    public static string EnsureCliInstalled()
+    {
+        var targetDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".claude-light");
+        var targetExe = Path.Combine(targetDir, "claude-light.exe");
+
+        if (!Directory.Exists(targetDir))
+            Directory.CreateDirectory(targetDir);
+
+        var currentExe = Environment.ProcessPath;
+        if (currentExe != null && File.Exists(currentExe))
+        {
+            File.Copy(currentExe, targetExe, overwrite: true);
+        }
+
+        return targetExe;
+    }
+
     public static void InstallHooks(string settingsPath, string cliExePath)
     {
         var json = File.Exists(settingsPath) ? File.ReadAllText(settingsPath) : "{}";
