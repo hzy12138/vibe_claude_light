@@ -30,11 +30,13 @@ public class Program
             return 0;
         }
 
+        // PostToolUse writes "idle" instead of "done"
+        // StateFileWatcher will handle timeout to transition to "done"
         var status = action switch
         {
             "running" => "running",
             "confirm" => "confirm",
-            "done" => "done",
+            "done" => "idle",
             _ => null
         };
 

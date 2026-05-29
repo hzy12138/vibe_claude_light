@@ -20,6 +20,20 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Global exception handler
+        AppDomain.CurrentDomain.UnhandledException += (s, args) =>
+        {
+            var ex = args.ExceptionObject as Exception;
+            File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "error.log"),
+                $"[{DateTime.Now}] Unhandled: {ex}\n");
+        };
+        DispatcherUnhandledException += (s, args) =>
+        {
+            File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "error.log"),
+                $"[{DateTime.Now}] Dispatcher: {args.Exception}\n");
+            args.Handled = true;
+        };
+
         _mutex = new Mutex(true, "ClaudeLight_SingleInstance", out bool createdNew);
         if (!createdNew)
         {
@@ -27,17 +41,27 @@ public partial class App : Application
             return;
         }
 
-        // Install hooks
-        var cliPath = HookInstaller.EnsureCliInstalled();
-        var settingsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".claude", "settings.json");
+        try
+        {
+            // Install hooks
+            var cliPath = HookInstaller.EnsureCliInstalled();
+            var settingsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".claude", "settings.json");
 
-        if (File.Exists(settingsPath))
-            HookInstaller.InstallHooks(settingsPath, cliPath);
+            if (File.Exists(settingsPath))
+                HookInstaller.InstallHooks(settingsPath, cliPath);
 
-        // Start system tray
-        _systemTray = new SystemTray();
+            // Start system tray
+            _systemTray = new SystemTray();
+        }
+        catch (Exception ex)
+        {
+            File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "error.log"),
+                $"[{DateTime.Now}] Startup: {ex}\n");
+            System.Windows.MessageBox.Show($"Startup error: {ex.Message}\n\nCheck error.log for details.", "ClaudeLight Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown();
+        }
 
         // Start state file watcher
         _stateWatcher = new StateFileWatcher();
@@ -65,27 +89,47 @@ public partial class App : Application
 
     private void OnStatusChanged(string projectDir, LightStatus? status)
     {
+        // 标准化路径：统一使用小写和正斜杠，避免同一项目创建多个窗口
+        var normalizedDir = projectDir.Replace("\\", "/").ToLowerInvariant();
+
         Dispatcher.Invoke(() =>
         {
-            if (status == null)
+            try
             {
-                if (_windows.TryGetValue(projectDir, out var window))
+                if (status == null)
                 {
-                    window.UpdateStatus(null);
-                    _systemTray?.RemoveWindow(window);
-                    _windows.Remove(projectDir);
+                    if (_windows.TryGetValue(normalizedDir, out var window))
+                    {
+                        window.UpdateStatus(null);
+                        _systemTray?.RemoveWindow(window);
+                        _windows.Remove(normalizedDir);
+                    }
+                }
+                else
+                {
+                    if (!_windows.TryGetValue(normalizedDir, out var window))
+                    {
+                        // 计算新窗口位置：根据已有窗口数量偏移，避免重叠
+                        var offset = _windows.Count * 30;
+                        window = new MainWindow
+                        {
+                            ProjectDir = projectDir,
+                            Left = 1700 + offset,
+                            Top = 50 + offset
+                        };
+                        _windows[normalizedDir] = window;
+                        _systemTray?.AddWindow(window);
+                    }
+                    window.UpdateStatus(status);
+                    window.Show();
+                    window.Activate();
+                    window.Topmost = true;
                 }
             }
-            else
+            catch (Exception ex)
             {
-                if (!_windows.TryGetValue(projectDir, out var window))
-                {
-                    window = new MainWindow { ProjectDir = projectDir };
-                    _windows[projectDir] = window;
-                    _systemTray?.AddWindow(window);
-                }
-                window.UpdateStatus(status);
-                window.Show();
+                File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "error.log"),
+                    $"[{DateTime.Now}] OnStatusChanged error: {ex}\n");
             }
         });
     }

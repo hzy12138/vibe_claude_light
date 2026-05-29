@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
+using System.Drawing;
 using Application = System.Windows.Application;
 
 namespace ClaudeLight.Controls;
@@ -14,10 +16,12 @@ public class SystemTray : IDisposable
 
     public SystemTray()
     {
+        // 使用项目中的灯泡图标资源
+        var icon = LoadIcon();
+
         _notifyIcon = new System.Windows.Forms.NotifyIcon
         {
-            Icon = new System.Drawing.Icon(
-                Application.GetResourceStream(new Uri("pack://application:,,,/Resources/lightbulb.ico")).Stream),
+            Icon = icon,
             Text = "Claude Light",
             Visible = true
         };
@@ -55,6 +59,24 @@ public class SystemTray : IDisposable
     {
         _windows.Remove(window);
         UpdateTooltip();
+    }
+
+    private static System.Drawing.Icon LoadIcon()
+    {
+        try
+        {
+            var iconPath = Path.Combine(AppContext.BaseDirectory, "Resources", "lightbulb.ico");
+            if (!File.Exists(iconPath))
+                return SystemIcons.Application;
+
+            // 从文件流加载图标，确保格式正确
+            using var fs = new FileStream(iconPath, FileMode.Open, FileAccess.Read);
+            return new System.Drawing.Icon(fs);
+        }
+        catch
+        {
+            return SystemIcons.Application;
+        }
     }
 
     private void ToggleLayout()

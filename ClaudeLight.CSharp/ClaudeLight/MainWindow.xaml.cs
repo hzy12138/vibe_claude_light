@@ -3,16 +3,12 @@ using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using ClaudeLight.Models;
-using Point = System.Windows.Point;
-using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 
 namespace ClaudeLight;
 
 public partial class MainWindow : Window
 {
     private bool _isHorizontal;
-    private Point _dragStart;
-    private bool _isDragging;
 
     public string ProjectDir { get; set; } = "";
 
@@ -20,7 +16,12 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Loaded += MainWindow_Loaded;
-        MouseDoubleClick += Window_MouseDoubleClick;
+        MouseDoubleClick += (_, _) => ToggleLayout();
+    }
+
+    private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        DragMove();
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -59,38 +60,5 @@ public partial class MainWindow : Window
             Width = 100;
             Height = 200;
         }
-    }
-
-    private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        _dragStart = e.GetPosition(this);
-        _isDragging = false;
-        CaptureMouse();
-    }
-
-    private void Window_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (IsMouseCaptured)
-        {
-            var pos = e.GetPosition(this);
-            var dx = pos.X - _dragStart.X;
-            var dy = pos.Y - _dragStart.Y;
-
-            if (Math.Abs(dx) > 2 || Math.Abs(dy) > 2)
-                _isDragging = true;
-
-            Left += dx;
-            Top += dy;
-        }
-    }
-
-    private void Window_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        ReleaseMouseCapture();
-    }
-
-    private void Window_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        ToggleLayout();
     }
 }

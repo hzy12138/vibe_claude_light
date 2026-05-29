@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using ClaudeLight.Models;
 
 namespace ClaudeLight.Services;
@@ -11,6 +12,10 @@ public class StateFileWatcher : IDisposable
     private readonly FileSystemWatcher _watcher;
     private readonly string _stateDir;
     private readonly Dictionary<string, LightStatus?> _knownStates = new();
+    private readonly Dictionary<string, Timer> _idleTimers = new();
+    private readonly object _lock = new();
+
+    private const int IdleTimeoutMs = 3000;
 
     public event Action<string, LightStatus?>? StatusChanged;
     public event Action<string>? InstanceRemoved;
@@ -40,10 +45,41 @@ public class StateFileWatcher : IDisposable
             if (state == null) return;
             var status = state.GetStatus();
 
-            if (_knownStates.TryGetValue(state.ProjectDir, out var oldStatus) && oldStatus == status)
-                return;
+            lock (_lock)
+            {
+                // Cancel any pending idle timer for this project
+                if (_idleTimers.TryGetValue(state.ProjectDir, out var timer))
+                {
+                    timer.Dispose();
+                    _idleTimers.Remove(state.ProjectDir);
+                }
 
-            _knownStates[state.ProjectDir] = status;
+                // Handle idle state: start timeout timer
+                if (status == LightStatus.Idle)
+                {
+                    var idleTimer = new Timer(_ =>
+                    {
+                        lock (_lock)
+                        {
+                            // Timer expired, transition to Done
+                            _idleTimers.Remove(state.ProjectDir);
+                        }
+                        _knownStates[state.ProjectDir] = LightStatus.Done;
+                        StatusChanged?.Invoke(state.ProjectDir, LightStatus.Done);
+                    }, null, IdleTimeoutMs, Timeout.Infinite);
+
+                    _idleTimers[state.ProjectDir] = idleTimer;
+
+                    // Don't emit idle status yet, wait for timeout
+                    return;
+                }
+
+                if (_knownStates.TryGetValue(state.ProjectDir, out var oldStatus) && oldStatus == status)
+                    return;
+
+                _knownStates[state.ProjectDir] = status;
+            }
+
             StatusChanged?.Invoke(state.ProjectDir, status);
         }
         catch { }
@@ -54,15 +90,31 @@ public class StateFileWatcher : IDisposable
         try
         {
             var projectName = Path.GetFileNameWithoutExtension(e.Name);
-            // Try to find matching project dir from known states
-            foreach (var kvp in _knownStates)
+
+            lock (_lock)
             {
-                if (kvp.Key.Replace("\\", "_").Replace("/", "_").Replace(":", "_").EndsWith(projectName, StringComparison.OrdinalIgnoreCase)
-                    || projectName.Contains(kvp.Key.Replace("\\", "_").Replace("/", "_").Replace(":", "_")[^Math.Min(50, kvp.Key.Length)..]))
+                // Cancel any pending idle timer
+                foreach (var kvp in _idleTimers)
                 {
-                    _knownStates.Remove(kvp.Key);
-                    InstanceRemoved?.Invoke(kvp.Key);
-                    return;
+                    if (kvp.Key.Replace("\\", "_").Replace("/", "_").Replace(":", "_").EndsWith(projectName, StringComparison.OrdinalIgnoreCase)
+                        || projectName.Contains(kvp.Key.Replace("\\", "_").Replace("/", "_").Replace(":", "_")[^Math.Min(50, kvp.Key.Length)..]))
+                    {
+                        kvp.Value.Dispose();
+                        _idleTimers.Remove(kvp.Key);
+                        break;
+                    }
+                }
+
+                // Try to find matching project dir from known states
+                foreach (var kvp in _knownStates)
+                {
+                    if (kvp.Key.Replace("\\", "_").Replace("/", "_").Replace(":", "_").EndsWith(projectName, StringComparison.OrdinalIgnoreCase)
+                        || projectName.Contains(kvp.Key.Replace("\\", "_").Replace("/", "_").Replace(":", "_")[^Math.Min(50, kvp.Key.Length)..]))
+                    {
+                        _knownStates.Remove(kvp.Key);
+                        InstanceRemoved?.Invoke(kvp.Key);
+                        return;
+                    }
                 }
             }
         }
@@ -90,5 +142,11 @@ public class StateFileWatcher : IDisposable
     public void Dispose()
     {
         _watcher.Dispose();
+        lock (_lock)
+        {
+            foreach (var timer in _idleTimers.Values)
+                timer.Dispose();
+            _idleTimers.Clear();
+        }
     }
 }

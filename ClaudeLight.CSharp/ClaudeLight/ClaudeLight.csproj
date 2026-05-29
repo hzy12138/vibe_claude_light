@@ -4,8 +4,16 @@
     <ProjectReference Include="..\ClaudeLight.CLI\ClaudeLight.CLI.csproj" />
   </ItemGroup>
 
+
   <ItemGroup>
     <Resource Include="Resources\lightbulb.ico" />
+    <Resource Include="Resources\rgb.svg" />
+    <None Update="Resources\lightbulb.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\rgb.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <PropertyGroup>

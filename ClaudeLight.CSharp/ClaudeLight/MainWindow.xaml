@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:ClaudeLight"
         Title="Claude Light"
-        WindowStyle="SingleBorderWindow"
+        WindowStyle="None"
         Topmost="True"
         AllowsTransparency="True"
         Background="Transparent"
@@ -12,12 +12,10 @@
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         WindowStartupLocation="Manual"
-        Left="1800" Top="100">
+        Left="1700" Top="50">
 
     <Border Background="#1e1e1e" BorderBrush="#555" BorderThickness="1" CornerRadius="8"
-            MouseLeftButtonDown="Window_MouseLeftButtonDown"
-            MouseLeftButtonUp="Window_MouseLeftButtonUp"
-            MouseMove="Window_MouseMove"
+            MouseLeftButtonDown="Border_MouseLeftButtonDown"
             >
         <local:TrafficLight x:Name="TrafficLightControl"/>
     </Border>

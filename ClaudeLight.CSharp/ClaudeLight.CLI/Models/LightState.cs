@@ -9,7 +9,8 @@ public enum LightStatus
 {
     Running,
     Confirm,
-    Done
+    Done,
+    Idle
 }
 
 public class LightState
@@ -34,6 +35,7 @@ public class LightState
         "running" => LightStatus.Running,
         "confirm" => LightStatus.Confirm,
         "done" => LightStatus.Done,
+        "idle" => LightStatus.Idle,
         _ => null
     };
 
