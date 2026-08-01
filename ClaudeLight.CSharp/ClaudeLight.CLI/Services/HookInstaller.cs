@@ -70,7 +70,7 @@ public static class HookInstaller
         hooksContent += $@"
   ""PreToolUse"": [{{ ""hooks"": [{{ ""type"": ""command"", ""command"": ""\""{cliPath}\"" hook running $CLAUDE_PROJECT_DIR"" }}] }}],
   ""PostToolUse"": [{{ ""hooks"": [{{ ""type"": ""command"", ""command"": ""\""{cliPath}\"" hook done $CLAUDE_PROJECT_DIR"" }}] }}],
-  ""Notification"": [{{ ""hooks"": [{{ ""type"": ""command"", ""command"": ""\""{cliPath}\"" hook confirm $CLAUDE_PROJECT_DIR"" }}] }}]
+  ""PermissionRequest"": [{{ ""hooks"": [{{ ""type"": ""command"", ""command"": ""\""{cliPath}\"" hook confirm $CLAUDE_PROJECT_DIR"" }}] }}]
 }}";
 
         // Rebuild the entire settings object
