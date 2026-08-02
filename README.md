@@ -1,143 +1,133 @@
-# Claude Code 红绿灯 / Claude Code Traffic Light 🚦
+# Claude Code Traffic Light 🚦
 
-[English](#english) | [中文](#中文)
+> A desktop traffic light indicator for Claude Code on Windows — see at a glance whether Claude is working, waiting, or done.
 
-屏幕上显示红绿灯，实时指示 Claude Code 的工作状态。
+[中文说明](#中文) | [Install](#quick-start) | [How It Works](#how-it-works)
 
-A desktop traffic light indicator that shows Claude Code's real-time status on your screen.
+![screenshot](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![dotnet](https://img.shields.io/badge/.NET-8.0-purple) ![status](https://img.shields.io/badge/status-active-brightgreen)
+
+**The problem:** You're coding with Claude Code in VSCode, tab away to do something else, and have no idea if Claude finished, hit a permission dialog, or crashed. You keep alt-tabbing back to check.
+
+**The solution:** A tiny traffic light overlay on your screen. 🔴 Red = working. 🟡 Yellow = needs you. 🟢 Green = done. Zero keystrokes needed.
 
 ---
 
-## English
+## Features
 
-### Light States
+- **Real-time status** — hooks into Claude Code's lifecycle via native hooks
+- **Multi-project support** — one light per project, auto-arranged
+- **Permission alert** — distinct yellow blink when Claude needs your approval
+- **System tray** — lives in your tray, left-click to see running projects
+- **Auto-start** — optionally launch on Windows startup
+- **Zero config** — double-click, hooks auto-install, done
 
-| Color | Meaning |
-|-------|---------|
-| 🔴 Red (solid) | Claude Code is working |
-| 🟡 Yellow (blinking on red) | Claude Code needs your permission |
-| 🟢 Green (solid) | Task completed |
-| ⚫ Off | Claude Code is not running |
+### Compared to macOS alternatives
 
-### Features
+| | Claude Light | [claude-status-bar](https://github.com/m1ckc3s/claude-status-bar) | [Claude Status](https://github.com/gmr/claude-status) |
+|---|---|---|---|
+| Platform | **Windows** | macOS | macOS |
+| Visual | Traffic light window | Menu bar icon | Menu bar + widget |
+| Multi-project | ✅ Per-project window | ✅ Aggregated | ✅ Dropdown list |
+| Permission alert | 🟡 Red+yellow blink | 🟡 Yellow dot | 🟠 Orange dot |
+| Auto-install hooks | ✅ | ✅ | ✅ |
 
-- Monitor multiple Claude Code sessions simultaneously, each with project name and path
-- Double-click window to toggle horizontal/vertical layout
-- Drag to reposition
-- System tray with context menu (toggle layout, show/hide, auto-start, exit)
-- **Left-click tray icon** to see running project list
-- Auto-installs hooks on startup — no manual config needed
-- Multiple windows auto-offset to avoid overlap
+---
 
-### How It Works
-
-```
-Claude Code hooks → CLI.exe → ~/.claude-lights/*.json → FileSystemWatcher → GUI
-```
-
-The app registers four Claude Code hooks on startup:
-- `PreToolUse` → 🔴 Red (Claude starts working)
-- `PostToolUse` → 🔴 Red (tool finished, session continues)
-- `PermissionRequest` → 🟡 Yellow blink on red (needs your attention)
-- `Stop` → ⏱️ 3s → 🟢 Green (Claude finished responding)
-
-### Quick Start
+## Quick Start
 
 **Prerequisites:** [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 
-```bash
-# Build
+```powershell
+# 1. Build
 cd ClaudeLight.CSharp
 dotnet publish -c Release --self-contained -r win-x64 -o publish/
 
-# Run
+# 2. Run
 ./publish/ClaudeLight.exe
 
-# Uninstall
-./publish/ClaudeLight.Clean.exe --force
+# 3. Use Claude Code normally — lights appear automatically
 ```
 
-### Tray Menu
+Or download the latest pre-built ZIP from [Releases](https://github.com/hzy12138/vibe_claude_light/releases).
 
-| Item | Action |
-|------|--------|
-| Toggle Layout | Switch all windows between horizontal/vertical |
-| Show/Hide All | Show or hide all traffic light windows |
-| Auto-Start | Enable/disable launch on Windows startup |
-| Exit | Quit the application |
+---
 
-### Debugging
+## How It Works
 
-Check the log file: `publish/claude-light.log`
+```
+┌─────────────────────────────────────────────────────────┐
+│ Claude Code                                              │
+│   PreToolUse ──→ ClaudeLight.CLI.exe hook running ──┐    │
+│   PostToolUse ──→ ClaudeLight.CLI.exe hook done  ──┤    │
+│   PermissionReq ─→ ClaudeLight.CLI.exe hook confirm ┤    │
+│   Stop ────────→ ClaudeLight.CLI.exe hook idle ────┤    │
+└─────────────────────────────────────────────────────┘    │
+                                                      │    │
+                    ┌─────────────────────────────────┘    │
+                    ▼                                      │
+          ~/.claude-lights/                                │
+          {project}.json                                   │
+                    │                                      │
+                    ▼                                      │
+          FileSystemWatcher ──→ Traffic Light GUI          │
+                                  🔴 🟡 🟢                │
+└─────────────────────────────────────────────────────────┘
+```
+
+Four hooks, one file per project, real-time file watching. No polling, no server, no cloud.
+
+---
+
+## Light States
+
+| Light | Meaning |
+|-------|---------|
+| 🔴 **Red (solid)** | Claude is actively working (tools or thinking) |
+| 🔴🟡 **Red + Yellow (blink)** | Claude needs your permission — open Claude Code |
+| 🟢 **Green (solid)** | Claude finished responding |
+| ⚫ **Off** | No Claude Code session active |
+
+---
+
+## Tray Menu
+
+| Click | Action |
+|-------|--------|
+| **Left-click** | Show running project count & list |
+| **Right-click** | Context menu (layout, visibility, auto-start, exit) |
+| **Double-click** | Show/hide all windows |
+
+---
+
+## Uninstall
+
+```powershell
+./publish/ClaudeLight.Clean.exe --force
+```
 
 ---
 
 ## 中文
 
+### Claude Code 红绿灯
+
+一个 Windows 桌面红绿灯指示器，实时显示 Claude Code 的工作状态。用 Claude Code 写代码时切屏干别的，瞄一眼就知道 Claude 是正在跑、卡权限了、还是已经完成了。
+
+**快速开始：** 装 .NET 8 SDK → `dotnet publish` → 双击 `ClaudeLight.exe` → 搞定。
+
+详细文档：[docs/操作指南.md](docs/操作指南.md)
+
 ### 灯色说明
 
-| 颜色 | 状态 |
+| 灯色 | 含义 |
 |------|------|
-| 🔴 红灯常亮 | Claude Code 正在执行 |
-| 🟡 黄灯闪烁（红底） | Claude Code 需要你确认 |
+| 🔴 红灯常亮 | 工作中 |
+| 🔴🟡 红底+黄闪 | 需要你确认权限 |
 | 🟢 绿灯常亮 | 任务完成 |
-| ⚫ 无灯 | Claude Code 未运行 |
-
-### 功能
-
-- 支持多个 Claude Code 实例同时监控，每个灯旁显示项目名和路径
-- 双击窗口切换竖排/横排布局
-- 拖拽移动位置
-- 系统托盘管理（右键菜单：切换布局、显示/隐藏、开机自启动、退出）
-- **左键点击托盘图标**查看运行中的项目列表
-- 启动时自动配置 hooks，无需手动操作
-- 多个项目窗口自动偏移显示，避免重叠
-
-### 工作原理
-
-```
-Claude Code hooks → CLI.exe → ~/.claude-lights/*.json → FileSystemWatcher → GUI
-```
-
-启动时自动注册四个 Claude Code hook：
-- `PreToolUse` → 🔴 红灯（Claude 开始工作）
-- `PostToolUse` → 🔴 红灯（工具完成，会话继续）
-- `PermissionRequest` → 🟡 红底+黄闪（需要确认）
-- `Stop` → ⏱️ 3 秒 → 🟢 绿灯（会话完成）
-
-### 快速开始
-
-**环境要求:** [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-
-```bash
-# 编译
-cd ClaudeLight.CSharp
-dotnet publish -c Release --self-contained -r win-x64 -o publish/
-
-# 运行
-./publish/ClaudeLight.exe
-
-# 卸载
-./publish/ClaudeLight.Clean.exe --force
-```
-
-详细操作指南见 [docs/操作指南.md](docs/操作指南.md)。
-
-### 托盘菜单
-
-| 菜单项 | 功能 |
-|--------|------|
-| 切换布局 | 切换所有窗口的横排/竖排 |
-| 显示/隐藏全部 | 一键显示或隐藏所有红绿灯窗口 |
-| 开机自启动 | 勾选后开机自动启动 |
-| 退出 | 完全退出程序 |
-
-### 调试
-
-查看日志文件：`publish/claude-light.log`
+| ⚫ 全灭 | 未运行 |
 
 ---
 
 ## License
 
-MIT
+MIT © hzy12138
