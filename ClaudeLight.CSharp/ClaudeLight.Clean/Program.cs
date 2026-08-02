@@ -43,16 +43,6 @@ public class Program
             Console.WriteLine($"Deleted {stateDir}");
         }
 
-        // 3. Delete CLI directory
-        var cliDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".claude-light");
-        if (Directory.Exists(cliDir))
-        {
-            Directory.Delete(cliDir, true);
-            Console.WriteLine($"Deleted {cliDir}");
-        }
-
         Console.WriteLine("Claude Light has been uninstalled.");
         return 0;
     }

@@ -31,9 +31,12 @@ public partial class TrafficLight : UserControl
         ToolTip = $"{name}\n{path}";
     }
 
+    private LightStatus? _currentStatus;
+
     public void SetStatus(LightStatus? status)
     {
         _blinkTimer.Stop();
+        _currentStatus = status;
 
         var red = "#333";
         var yellow = "#333";
@@ -45,6 +48,8 @@ public partial class TrafficLight : UserControl
                 red = "#e74c3c";
                 break;
             case LightStatus.Confirm:
+                // 红底 + 黄闪：Claude 活着但在等用户确认
+                red = "#e74c3c";
                 yellow = "#f39c12";
                 _blinkTimer.Start();
                 break;
@@ -65,8 +70,9 @@ public partial class TrafficLight : UserControl
     private void BlinkTimer_Tick(object? sender, EventArgs e)
     {
         _blinkState = !_blinkState;
+        // Confirm 状态：红底保持，黄灯闪烁
         var yellow = _blinkState ? "#f39c12" : "#333";
-        ApplyColor("#333", yellow, "#333");
+        ApplyColor("#e74c3c", yellow, "#333");
     }
 
     private void ApplyColor(string red, string yellow, string green)

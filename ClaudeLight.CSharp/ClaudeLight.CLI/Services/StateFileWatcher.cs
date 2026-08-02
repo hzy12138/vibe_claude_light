@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.Json;
 using System.Threading;
 using ClaudeLight.Models;
 
@@ -12,10 +11,11 @@ public class StateFileWatcher : IDisposable
     private readonly FileSystemWatcher _watcher;
     private readonly string _stateDir;
     private readonly Dictionary<string, LightStatus?> _knownStates = new();
-    private readonly Dictionary<string, Timer> _idleTimers = new();
+    private readonly Dictionary<string, Timer> _timers = new();
+    private readonly Dictionary<string, string> _fileToProjectDir = new();
     private readonly object _lock = new();
 
-    private const int IdleTimeoutMs = 3000;
+    private const int IdleTimeoutMs = 3000;     // Stop → idle → 3s → Done
 
     public event Action<string, LightStatus?>? StatusChanged;
     public event Action<string>? InstanceRemoved;
@@ -35,95 +35,136 @@ public class StateFileWatcher : IDisposable
         _watcher.Changed += OnFileChanged;
         _watcher.Deleted += OnFileDeleted;
         _watcher.EnableRaisingEvents = true;
+
+        Logger.Info("StateFileWatcher", $"Watching directory: {_stateDir}");
     }
 
     private void OnFileChanged(object sender, FileSystemEventArgs e)
     {
         try
         {
+            Logger.Info("StateFileWatcher", $"File {e.ChangeType}: {e.Name}");
+
             var state = LightState.ReadFromFile(e.FullPath);
-            if (state == null) return;
+            if (state == null)
+            {
+                Logger.Warn("StateFileWatcher", $"Failed to read state from: {e.Name}");
+                return;
+            }
+
             var status = state.GetStatus();
+            Logger.Info("StateFileWatcher", $"State: project={state.ProjectName}, status={state.Status} → {status}");
+
+            var fileName = Path.GetFileNameWithoutExtension(e.Name);
+            if (fileName != null)
+                _fileToProjectDir[fileName] = state.ProjectDir;
 
             lock (_lock)
             {
-                // Cancel any pending idle timer for this project
-                if (_idleTimers.TryGetValue(state.ProjectDir, out var timer))
-                {
-                    timer.Dispose();
-                    _idleTimers.Remove(state.ProjectDir);
-                }
+                // 任何新事件到来，取消该项目的所有待处理定时器
+                CancelTimer(state.ProjectDir);
 
-                // Handle idle state: start timeout timer
+                // idle → 启动空闲定时器，超时后转绿灯
                 if (status == LightStatus.Idle)
                 {
-                    var idleTimer = new Timer(_ =>
+                    _knownStates[state.ProjectDir] = LightStatus.Idle;
+
+                    var projectDir = state.ProjectDir;
+                    var timer = new Timer(_ =>
                     {
                         lock (_lock)
                         {
-                            // Timer expired, transition to Done
-                            _idleTimers.Remove(state.ProjectDir);
+                            _timers.Remove(projectDir);
+                            _knownStates[projectDir] = LightStatus.Done;
                         }
-                        _knownStates[state.ProjectDir] = LightStatus.Done;
-                        StatusChanged?.Invoke(state.ProjectDir, LightStatus.Done);
+                        Logger.Info("StateFileWatcher", $"Idle timer expired → Done: {projectDir}");
+                        StatusChanged?.Invoke(projectDir, LightStatus.Done);
                     }, null, IdleTimeoutMs, Timeout.Infinite);
 
-                    _idleTimers[state.ProjectDir] = idleTimer;
-
-                    // Don't emit idle status yet, wait for timeout
+                    _timers[state.ProjectDir] = timer;
+                    Logger.Info("StateFileWatcher", $"Started idle timer ({IdleTimeoutMs}ms): {state.ProjectName}");
                     return;
                 }
 
-                if (_knownStates.TryGetValue(state.ProjectDir, out var oldStatus) && oldStatus == status)
+                // confirm → 红底+黄闪（不自动过期，等 PostToolUse/Stop 改变状态）
+                if (status == LightStatus.Confirm)
+                {
+                    _knownStates[state.ProjectDir] = LightStatus.Confirm;
+                    Logger.Info("StateFileWatcher", $"State: Confirm (no timer, waiting for next hook)");
+                    StatusChanged?.Invoke(state.ProjectDir, LightStatus.Confirm);
                     return;
+                }
+
+                // 去重：相同状态不重复通知
+                if (_knownStates.TryGetValue(state.ProjectDir, out var oldStatus) && oldStatus == status)
+                {
+                    Logger.Info("StateFileWatcher", $"Same status, skipping: {status}");
+                    return;
+                }
 
                 _knownStates[state.ProjectDir] = status;
+                Logger.Info("StateFileWatcher", $"State transition: {oldStatus} → {status} for {state.ProjectName}");
             }
 
             StatusChanged?.Invoke(state.ProjectDir, status);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.Error("StateFileWatcher", $"Error in OnFileChanged: {ex.Message}");
+        }
+    }
+
+    private void CancelTimer(string projectDir)
+    {
+        if (_timers.TryGetValue(projectDir, out var timer))
+        {
+            timer.Dispose();
+            _timers.Remove(projectDir);
+            Logger.Info("StateFileWatcher", $"Cancelled timer for: {projectDir}");
+        }
     }
 
     private void OnFileDeleted(object sender, FileSystemEventArgs e)
     {
         try
         {
-            var projectName = Path.GetFileNameWithoutExtension(e.Name);
+            Logger.Info("StateFileWatcher", $"File deleted: {e.Name}");
+
+            var fileName = Path.GetFileNameWithoutExtension(e.Name);
+            if (fileName == null) return;
 
             lock (_lock)
             {
-                // Cancel any pending idle timer
-                foreach (var kvp in _idleTimers)
+                if (!_fileToProjectDir.TryGetValue(fileName, out var projectDir))
                 {
-                    if (kvp.Key.Replace("\\", "_").Replace("/", "_").Replace(":", "_").EndsWith(projectName, StringComparison.OrdinalIgnoreCase)
-                        || projectName.Contains(kvp.Key.Replace("\\", "_").Replace("/", "_").Replace(":", "_")[^Math.Min(50, kvp.Key.Length)..]))
-                    {
-                        kvp.Value.Dispose();
-                        _idleTimers.Remove(kvp.Key);
-                        break;
-                    }
+                    Logger.Warn("StateFileWatcher", $"No projectDir mapping for deleted file: {fileName}");
+                    return;
                 }
 
-                // Try to find matching project dir from known states
-                foreach (var kvp in _knownStates)
+                CancelTimer(projectDir);
+
+                if (_knownStates.Remove(projectDir))
                 {
-                    if (kvp.Key.Replace("\\", "_").Replace("/", "_").Replace(":", "_").EndsWith(projectName, StringComparison.OrdinalIgnoreCase)
-                        || projectName.Contains(kvp.Key.Replace("\\", "_").Replace("/", "_").Replace(":", "_")[^Math.Min(50, kvp.Key.Length)..]))
-                    {
-                        _knownStates.Remove(kvp.Key);
-                        InstanceRemoved?.Invoke(kvp.Key);
-                        return;
-                    }
+                    Logger.Info("StateFileWatcher", $"Removing instance: {projectDir}");
+                    InstanceRemoved?.Invoke(projectDir);
                 }
+
+                _fileToProjectDir.Remove(fileName);
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.Error("StateFileWatcher", $"Error in OnFileDeleted: {ex.Message}");
+        }
     }
 
     public void ScanExistingStates()
     {
         if (!Directory.Exists(_stateDir)) return;
+
+        Logger.Info("StateFileWatcher", $"Scanning existing states in: {_stateDir}");
+        var count = 0;
+
         foreach (var file in Directory.GetFiles(_stateDir, "*.json"))
         {
             try
@@ -131,12 +172,22 @@ public class StateFileWatcher : IDisposable
                 var state = LightState.ReadFromFile(file);
                 if (state != null)
                 {
+                    var fileName = Path.GetFileNameWithoutExtension(file);
+                    if (fileName != null)
+                        _fileToProjectDir[fileName] = state.ProjectDir;
                     _knownStates[state.ProjectDir] = state.GetStatus();
                     StatusChanged?.Invoke(state.ProjectDir, state.GetStatus());
+                    count++;
+                    Logger.Info("StateFileWatcher", $"Loaded existing state: {state.ProjectName} → {state.GetStatus()}");
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.Error("StateFileWatcher", $"Error reading {file}: {ex.Message}");
+            }
         }
+
+        Logger.Info("StateFileWatcher", $"Scan complete: {count} state(s) loaded");
     }
 
     public void Dispose()
@@ -144,9 +195,9 @@ public class StateFileWatcher : IDisposable
         _watcher.Dispose();
         lock (_lock)
         {
-            foreach (var timer in _idleTimers.Values)
+            foreach (var timer in _timers.Values)
                 timer.Dispose();
-            _idleTimers.Clear();
+            _timers.Clear();
         }
     }
 }

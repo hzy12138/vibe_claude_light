@@ -8,7 +8,7 @@ namespace ClaudeLight;
 
 public partial class MainWindow : Window
 {
-    private bool _isHorizontal;
+    private bool _isHorizontal = true; // 默认横排
 
     public string ProjectDir { get; set; } = "";
 

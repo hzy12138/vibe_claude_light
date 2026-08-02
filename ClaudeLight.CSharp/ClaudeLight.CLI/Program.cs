@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Text.Json;
+using ClaudeLight.Models;
 
 namespace ClaudeLight.CLI;
 
@@ -11,32 +11,32 @@ public class Program
     {
         if (args.Length < 3 || args[0] != "hook")
         {
-            Console.Error.WriteLine("Usage: claude-light hook <running|confirm|done|exit> <project_dir>");
+            Console.Error.WriteLine("Usage: claude-light hook <running|confirm|done|idle|exit> <project_dir>");
             return 1;
         }
 
         var action = args[1];
         var projectDir = args[2];
 
-        var stateDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".claude-lights");
-
         if (action == "exit")
         {
-            var exitPath = GetStateFilePath(projectDir);
+            var exitPath = LightState.GetStateFilePath(projectDir);
             if (File.Exists(exitPath))
                 File.Delete(exitPath);
             return 0;
         }
 
-        // PostToolUse writes "idle" instead of "done"
-        // StateFileWatcher will handle timeout to transition to "done"
+        // 状态映射：
+        //   running  → PreToolUse 触发，Claude 开始工作 → 红灯
+        //   confirm  → PermissionRequest 触发，等待用户确认 → 黄灯闪烁
+        //   done     → PostToolUse 触发，工具执行完成，但会话还在继续 → 保持红灯
+        //   idle     → Stop 触发，Claude 真正完成了一次回复 → 空闲定时器 → 绿灯
         var status = action switch
         {
             "running" => "running",
             "confirm" => "confirm",
-            "done" => "idle",
+            "done" => "running",   // 工具完成 ≠ 会话完成，保持 working 状态
+            "idle" => "idle",       // Stop hook → 真的空闲了 → 定时器 → 绿灯
             _ => null
         };
 
@@ -47,36 +47,17 @@ public class Program
         }
 
         var projectName = new DirectoryInfo(projectDir).Name;
-        var state = new
+        var state = new LightState
         {
-            project_name = projectName,
-            project_dir = projectDir,
-            status = status,
-            pid = Process.GetCurrentProcess().Id,
-            updated_at = DateTime.UtcNow.ToString("o")
+            ProjectName = projectName,
+            ProjectDir = projectDir,
+            Status = status,
+            Pid = Process.GetCurrentProcess().Id,
+            UpdatedAt = DateTime.UtcNow.ToString("o")
         };
 
-        var path = GetStateFilePath(projectDir);
-        var dir = Path.GetDirectoryName(path);
-        if (dir != null && !Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-
-        var json = JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(path, json);
+        var path = LightState.GetStateFilePath(projectDir);
+        state.WriteToFile(path);
         return 0;
-    }
-
-    private static string GetStateFilePath(string projectDir)
-    {
-        var sanitized = projectDir
-            .Replace("\\", "_")
-            .Replace("/", "_")
-            .Replace(":", "_");
-        if (sanitized.Length > 100)
-            sanitized = sanitized[^100..];
-        var stateDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".claude-lights");
-        return Path.Combine(stateDir, $"{sanitized}.json");
     }
 }

@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Windows;
-using System.Windows.Media.Imaging;
 using System.Drawing;
 using Application = System.Windows.Application;
 
@@ -16,7 +16,6 @@ public class SystemTray : IDisposable
 
     public SystemTray()
     {
-        // 使用项目中的灯泡图标资源
         var icon = LoadIcon();
 
         _notifyIcon = new System.Windows.Forms.NotifyIcon
@@ -26,11 +25,12 @@ public class SystemTray : IDisposable
             Visible = true
         };
 
+        // 右键菜单
         var menu = new System.Windows.Forms.ContextMenuStrip();
-        menu.Items.Add("Toggle Layout", null, (_, _) => ToggleLayout());
-        menu.Items.Add("Show/Hide All", null, (_, _) => ToggleVisibility());
+        menu.Items.Add("切换布局", null, (_, _) => ToggleLayout());
+        menu.Items.Add("显示/隐藏全部", null, (_, _) => ToggleVisibility());
 
-        var autoStartItem = new System.Windows.Forms.ToolStripMenuItem("Auto-Start")
+        var autoStartItem = new System.Windows.Forms.ToolStripMenuItem("开机自启动")
         {
             Checked = ClaudeLight.Services.AutoStartManager.IsAutoStartEnabled()
         };
@@ -43,10 +43,23 @@ public class SystemTray : IDisposable
         menu.Items.Add(autoStartItem);
 
         menu.Items.Add("-");
-        menu.Items.Add("Exit", null, (_, _) => Exit());
+        menu.Items.Add("退出", null, (_, _) => Exit());
 
         _notifyIcon.ContextMenuStrip = menu;
+
+        // 左键：显示项目列表气泡
+        _notifyIcon.Click += (_, _) => ShowProjectList();
+        // 双击：显示/隐藏全部窗口
         _notifyIcon.DoubleClick += (_, _) => ToggleVisibility();
+    }
+
+    public void ShowStartupBalloon()
+    {
+        var count = _windows.Count;
+        var msg = count == 0
+            ? "Hook 已安装，等待 Claude Code 活动..."
+            : $"已检测到 {count} 个运行中的项目";
+        _notifyIcon.ShowBalloonTip(2000, "Claude Light 已启动 🚦", msg, System.Windows.Forms.ToolTipIcon.Info);
     }
 
     public void AddWindow(MainWindow window)
@@ -61,6 +74,17 @@ public class SystemTray : IDisposable
         UpdateTooltip();
     }
 
+    private void ShowProjectList()
+    {
+        if (_windows.Count == 0) return;
+
+        var names = _windows.Select(w => new DirectoryInfo(w.ProjectDir).Name).ToList();
+        var title = $"运行中: {_windows.Count} 个项目";
+        var body = string.Join("\n", names.Select(n => $"• {n}"));
+
+        _notifyIcon.ShowBalloonTip(3000, title, body, System.Windows.Forms.ToolTipIcon.Info);
+    }
+
     private static System.Drawing.Icon LoadIcon()
     {
         try
@@ -69,7 +93,6 @@ public class SystemTray : IDisposable
             if (!File.Exists(iconPath))
                 return SystemIcons.Application;
 
-            // 从文件流加载图标，确保格式正确
             using var fs = new FileStream(iconPath, FileMode.Open, FileAccess.Read);
             return new System.Drawing.Icon(fs);
         }
@@ -102,7 +125,15 @@ public class SystemTray : IDisposable
 
     private void UpdateTooltip()
     {
-        _notifyIcon.Text = $"Claude Light — {_windows.Count} project(s)";
+        if (_windows.Count == 0)
+        {
+            _notifyIcon.Text = "Claude Light — 无运行项目";
+            return;
+        }
+        var names = _windows.Select(w => new DirectoryInfo(w.ProjectDir).Name).Take(3);
+        var label = string.Join(", ", names);
+        if (_windows.Count > 3) label += $" ...等{_windows.Count}个";
+        _notifyIcon.Text = $"Claude Light — {label}";
     }
 
     public void Dispose()
