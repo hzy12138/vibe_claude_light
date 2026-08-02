@@ -6,6 +6,8 @@ A desktop traffic light indicator for Claude Code on Windows. [English](#english
 
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![dotnet](https://img.shields.io/badge/.NET-8.0-purple)
 
+<img width="1156" height="1062" alt="8月2日" src="https://github.com/user-attachments/assets/ff8a734f-39d7-4998-b342-9f816ecf826b" />
+
 ---
 
 ## 痛点
