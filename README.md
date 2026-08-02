@@ -87,6 +87,19 @@ dotnet publish -c Release --self-contained -r win-x64 -o publish/
 
 > 设计关键：PostToolUse 每次工具完成都触发，但一次回复会连续调多个工具。用 Stop 而非 PostToolUse 判断"真正完成"，避免思考间歇误亮绿灯。
 
+## 已知限制
+
+**Claude Code 没有"用户已确认"的 hook 事件。** 权限流程是：
+
+```
+PreToolUse（工具开始）→ PermissionRequest（弹窗）→ [用户确认]
+    → [工具继续执行，无 hook 触发] → PostToolUse（工具完成）
+```
+
+从用户点击确认到 PostToolUse 触发之间，这段时间没有任何 hook 事件。黄灯需要等到 PostToolUse 才能转红，**而这正是工具本身的执行时间**。
+
+这是 Claude Code hook 系统的设计限制，同类 macOS 项目（claude-status-bar、Claude Status 等）面临同样的问题。本项目采用 **红底 + 黄闪** 的方案：确认后即使黄灯还在闪，红底始终亮着，你依然知道 Claude 还活着。
+
 ## 托盘操作
 
 | 操作 | 效果 |
@@ -173,6 +186,19 @@ Four hooks drive the state machine:
 | `Stop` | Claude finishes responding | ⏱ 3s → 🟢 Green |
 
 > Key design: PostToolUse fires after every tool, but one response may call many tools. We use Stop, not PostToolUse, to detect "truly done", avoiding false green between tool calls.
+
+### Known Limitations
+
+**Claude Code has no "user confirmed" hook.** When a permission dialog appears:
+
+```
+PreToolUse → PermissionRequest → [user confirms]
+    → [tool runs — no hook fires] → PostToolUse (tool done)
+```
+
+Between the user clicking "Allow" and PostToolUse firing, there is no hook event at all. The yellow blink can't revert to red until PostToolUse triggers — and that gap **is the tool's own execution time**.
+
+This is a Claude Code hook system limitation shared by all similar tools (claude-status-bar, Claude Status, etc.). Our approach: **red background + yellow blink**. Even if yellow keeps blinking after you confirmed, the solid red tells you Claude is still alive and working.
 
 ### Tray
 
