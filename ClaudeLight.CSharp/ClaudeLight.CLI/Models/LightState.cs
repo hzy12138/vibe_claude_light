@@ -46,6 +46,12 @@ public class LightState
             ".claude-lights");
     }
 
+    /// <summary>
+    /// 规范化项目路径：统一小写 + 正斜杠，用于窗口字典键、隐藏集合键和去重。
+    /// </summary>
+    public static string NormalizeDir(string projectDir) =>
+        projectDir.Replace("\\", "/").ToLowerInvariant();
+
     public static string GetStateFilePath(string projectDir)
     {
         var sanitized = projectDir

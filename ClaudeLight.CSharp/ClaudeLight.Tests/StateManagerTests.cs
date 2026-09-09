@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using ClaudeLight.Models;
 using ClaudeLight.Services;
 using Xunit;
 
@@ -49,5 +50,13 @@ public class StateManagerTests : IDisposable
         StateManager.WriteState(path, "proj", "dir", "running", 1);
         StateManager.DeleteState(path);
         Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public void NormalizeDir_UnifiesCaseAndSeparators()
+    {
+        Assert.Equal("e:/projects/my-project", LightState.NormalizeDir(@"E:\Projects\my-project"));
+        Assert.Equal("e:/projects/my-project", LightState.NormalizeDir("E:/Projects/my-project"));
+        Assert.Equal("c:/a/b", LightState.NormalizeDir("c:/a/b"));
     }
 }

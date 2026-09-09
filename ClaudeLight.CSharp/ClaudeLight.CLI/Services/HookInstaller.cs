@@ -67,13 +67,14 @@ public static class HookInstaller
 
         // Add claude-light hooks
         // PreToolUse/PostToolUse 必须要有 matcher 才能匹配工具调用
-        // PermissionRequest/Stop 是全局事件，不需要 matcher
+        // PermissionRequest/Stop/SessionEnd 是全局事件，不需要 matcher
         if (!first) hooksContent += ",";
         hooksContent += $@"
   ""PreToolUse"": [{{ ""matcher"": ""*"", ""hooks"": [{{ ""type"": ""command"", ""command"": ""\""{cliPath}\"" hook running $CLAUDE_PROJECT_DIR"" }}] }}],
   ""PostToolUse"": [{{ ""matcher"": ""*"", ""hooks"": [{{ ""type"": ""command"", ""command"": ""\""{cliPath}\"" hook done $CLAUDE_PROJECT_DIR"" }}] }}],
   ""PermissionRequest"": [{{ ""hooks"": [{{ ""type"": ""command"", ""command"": ""\""{cliPath}\"" hook confirm $CLAUDE_PROJECT_DIR"" }}] }}],
-  ""Stop"": [{{ ""hooks"": [{{ ""type"": ""command"", ""command"": ""\""{cliPath}\"" hook idle $CLAUDE_PROJECT_DIR"" }}] }}]
+  ""Stop"": [{{ ""hooks"": [{{ ""type"": ""command"", ""command"": ""\""{cliPath}\"" hook idle $CLAUDE_PROJECT_DIR"" }}] }}],
+  ""SessionEnd"": [{{ ""hooks"": [{{ ""type"": ""command"", ""command"": ""\""{cliPath}\"" hook exit $CLAUDE_PROJECT_DIR"" }}] }}]
 }}";
 
         // Rebuild the entire settings object

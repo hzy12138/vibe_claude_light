@@ -23,6 +23,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- EXE 图标与托盘图标统一使用 lightbulb.ico（含 16/32/64/256 四档） -->
+    <ApplicationIcon>Resources\lightbulb.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>

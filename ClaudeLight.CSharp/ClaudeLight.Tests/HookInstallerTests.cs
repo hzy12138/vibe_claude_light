@@ -52,6 +52,24 @@ public class HookInstallerTests : IDisposable
     }
 
     [Fact]
+    public void InstallHooks_RegistersSessionEndHook_ToExit()
+    {
+        File.WriteAllText(_testSettingsPath, "{}");
+
+        HookInstaller.InstallHooks(_testSettingsPath, "/fake/ClaudeLight.CLI.exe");
+
+        var json = File.ReadAllText(_testSettingsPath);
+        var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        Assert.True(root.TryGetProperty("hooks", out var hooks));
+        Assert.True(hooks.TryGetProperty("SessionEnd", out var sessionEnd));
+        var command = sessionEnd[0].GetProperty("hooks")[0].GetProperty("command").GetString();
+        Assert.NotNull(command);
+        Assert.Contains("hook exit", command);
+    }
+
+    [Fact]
     public void InstallHooks_DoesNotDuplicate_WhenAlreadyInstalled()
     {
         File.WriteAllText(_testSettingsPath, "{}");

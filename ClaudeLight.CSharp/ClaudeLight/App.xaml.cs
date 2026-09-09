@@ -19,6 +19,18 @@ public partial class App : Application
     private SystemTray? _systemTray;
     private readonly Dictionary<string, MainWindow> _windows = new();
 
+    /// <summary>
+    /// 用户"关闭并从列表移除"的项目集合（规范化路径）。
+    /// 关闭后灯消失、从托盘列表移除，直到该项目再次 running 才恢复显示。
+    /// </summary>
+    private readonly HashSet<string> _dismissed = new();
+
+    /// <summary>
+    /// 用户"隐藏灯"的项目集合（规范化路径）。
+    /// 隐藏后灯不显示，但项目仍保留在托盘列表，可随时手动重新显示。
+    /// </summary>
+    private readonly HashSet<string> _hidden = new();
+
     protected override void OnStartup(StartupEventArgs e)
     {
         // 初始化日志
@@ -69,6 +81,9 @@ public partial class App : Application
 
             // Start system tray
             _systemTray = new SystemTray();
+            _systemTray.CloseRequested += OnProjectClose;
+            _systemTray.HideToggleRequested += OnProjectHideToggle;
+            _systemTray.IsProjectHidden = dir => _hidden.Contains(LightState.NormalizeDir(dir));
             Logger.Info("App", "System tray started");
         }
         catch (Exception ex)
@@ -150,7 +165,7 @@ public partial class App : Application
     private void OnStatusChanged(string projectDir, LightStatus? status)
     {
         // 标准化路径：统一使用小写和正斜杠，避免同一项目创建多个窗口
-        var normalizedDir = projectDir.Replace("\\", "/").ToLowerInvariant();
+        var normalizedDir = LightState.NormalizeDir(projectDir);
 
         Logger.Info("App", $"Status changed: dir={projectDir}, status={status?.ToString() ?? "null"}, windows={_windows.Count}");
 
@@ -160,6 +175,9 @@ public partial class App : Application
             {
                 if (status == null)
                 {
+                    // 状态文件失效 → 关窗，并清除隐藏/关闭标记（该项目的下一次 running 将重新出现）
+                    _dismissed.Remove(normalizedDir);
+                    _hidden.Remove(normalizedDir);
                     if (_windows.TryGetValue(normalizedDir, out var window))
                     {
                         Logger.Info("App", $"Removing window for: {normalizedDir}");
@@ -170,6 +188,22 @@ public partial class App : Application
                 }
                 else
                 {
+                    // 用户已手动隐藏该项目（托盘点击关闭）→ 隐藏；一旦 Claude 再次开始工作即恢复显示
+                    if (_dismissed.Contains(normalizedDir))
+                    {
+                        // 再次 running（PreToolUse/PostToolUse）或等待确认（PermissionRequest）→ 恢复显示
+                        if (status == LightStatus.Running || status == LightStatus.Confirm)
+                        {
+                            _dismissed.Remove(normalizedDir);
+                            Logger.Info("App", $"Project running again, restore: {normalizedDir}");
+                        }
+                        else
+                        {
+                            Logger.Info("App", $"Project dismissed, skip showing: {normalizedDir}");
+                            return;
+                        }
+                    }
+
                     if (!_windows.TryGetValue(normalizedDir, out var window))
                     {
                         // check：根据已有窗口数量偏移，避免重叠
@@ -185,6 +219,14 @@ public partial class App : Application
                         Logger.Info("App", $"Created new window: dir={projectDir}, offset={offset}");
                     }
                     window.UpdateStatus(status);
+
+                    // 已"隐藏灯"的项目 → 更新状态但保持隐藏（项目仍留在托盘列表，可手动重新显示）
+                    if (_hidden.Contains(normalizedDir))
+                    {
+                        window.Hide();
+                        return;
+                    }
+
                     window.Show();
                     window.Activate();
                     window.Topmost = true;
@@ -200,13 +242,64 @@ public partial class App : Application
     private void OnInstanceRemoved(string projectDir)
     {
         Logger.Info("App", $"Instance removed: {projectDir}");
+        var normalizedDir = LightState.NormalizeDir(projectDir);
         Dispatcher.Invoke(() =>
         {
-            if (_windows.TryGetValue(projectDir, out var window))
+            // 会话结束（SessionEnd/exit 删除状态文件）→ 清除隐藏/关闭标记，下次 running 恢复显示
+            _dismissed.Remove(normalizedDir);
+            _hidden.Remove(normalizedDir);
+            if (_windows.TryGetValue(normalizedDir, out var window))
             {
                 window.UpdateStatus(null);
                 _systemTray?.RemoveWindow(window);
-                _windows.Remove(projectDir);
+                _windows.Remove(normalizedDir);
+            }
+        });
+    }
+
+    /// <summary>
+    /// 托盘菜单"关闭并从列表移除"：关闭灯 + 从列表移除，再次 running 才恢复。
+    /// </summary>
+    private void OnProjectClose(string projectDir)
+    {
+        var normalizedDir = LightState.NormalizeDir(projectDir);
+        Logger.Info("App", $"Close project: {normalizedDir}");
+        Dispatcher.Invoke(() =>
+        {
+            _hidden.Remove(normalizedDir);
+            _dismissed.Add(normalizedDir);
+            if (_windows.TryGetValue(normalizedDir, out var window))
+            {
+                window.UpdateStatus(null);
+                window.Hide();
+                _systemTray?.RemoveWindow(window);
+                _windows.Remove(normalizedDir);
+            }
+        });
+    }
+
+    /// <summary>
+    /// 托盘菜单"隐藏/显示灯"：隐藏时灯不显示但项目保留在列表，可随时重新显示。
+    /// </summary>
+    private void OnProjectHideToggle(string projectDir)
+    {
+        var normalizedDir = LightState.NormalizeDir(projectDir);
+        Logger.Info("App", $"Toggle hide project: {normalizedDir}");
+        Dispatcher.Invoke(() =>
+        {
+            if (!_hidden.Remove(normalizedDir))
+            {
+                // 尚未隐藏 → 隐藏灯
+                _hidden.Add(normalizedDir);
+                if (_windows.TryGetValue(normalizedDir, out var window))
+                    window.Hide();
+            }
+            else if (_windows.TryGetValue(normalizedDir, out var window))
+            {
+                // 已隐藏 → 重新显示灯
+                window.Show();
+                window.Activate();
+                window.Topmost = true;
             }
         });
     }
