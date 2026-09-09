@@ -30,11 +30,13 @@ A desktop traffic light indicator for Claude Code on Windows. [English](#english
 ## 功能
 
 - **实时状态** — 通过 Claude Code 原生 hooks 获取状态，非轮询
-- **多项目支持** — 每个项目独立窗口，窗口显示项目名和路径，自动偏移排列不重叠
+- **多项目支持** — 每个项目独立窗口，窗口显示项目名和路径，自动偏移排列
 - **权限提醒** — 需要确认时红底+黄闪，醒目但不碍眼
-- **系统托盘** — 常驻托盘，左键查看运行项目，右键切换布局/显示隐藏/开机自启/退出
+- **会话结束立即熄灭** — 监听 `SessionEnd`，Claude 会话结束即关灯，不再残留（v2.0.0）
+- **按项目管理** — 托盘左键弹出项目列表，每项目可「隐藏灯」（灯灭但保留列表）或「关闭并从列表移除」（下次 running 自动恢复）（v2.0.0）
+- **系统托盘** — 常驻托盘；左键查看/管理项目，右键切换布局/显示隐藏/开机自启/退出
 - **自动安装 hooks** — 双击启动，自动写入 `~/.claude/settings.json`，无需手动配置
-- **双击切换布局** — 横排/竖排随意切换
+- **双击切换布局** — 双击灯窗口横排/竖排随意切换
 - **拖拽移动** — 窗口可拖到任意位置
 
 ## 快速开始
@@ -57,24 +59,19 @@ dotnet publish -c Release --self-contained -r win-x64 -o publish/
 ## 工作原理
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│ Claude Code                                               │
-│   PreToolUse ────→ CLI.exe hook running ──┐               │
-│   PostToolUse ───→ CLI.exe hook done  ────┤               │
-│   PermissionReq ─→ CLI.exe hook confirm ──┤               │
-│   Stop ─────────→ CLI.exe hook idle ──────┤               │
-└────────────────────────────────────────────┼──────────────┘
-                                             │
-              ┌──────────────────────────────┘
-              ▼
-    ~/.claude-lights/{项目路径}.json
-              │
-              ▼
-    FileSystemWatcher 实时监控 → 红绿灯 GUI
-              🔴 🟡 🟢
+Claude Code hooks
+   PreToolUse ───────→ CLI.exe hook running  ──┐
+   PostToolUse ──────→ CLI.exe hook done  ─────┤ 写入/更新状态文件
+   PermissionRequest → CLI.exe hook confirm ───┤ ~/.claude-lights/{项目路径}.json
+   Stop ─────────────→ CLI.exe hook idle  ─────┤
+   SessionEnd ───────→ CLI.exe hook exit  ─────┘ 删除状态文件 → ⚫ 灯灭
+                                                │
+                                                ▼
+                                 FileSystemWatcher 实时监控 → 红绿灯 GUI
+                                           🔴 🟡 🟢
 ```
 
-四个 hook，每个项目一个 JSON 文件，FileSystemWatcher 实时驱动。不轮询、不连服务器、不依赖云。
+五个 hook（含 `SessionEnd`），每个项目一个 JSON 文件，FileSystemWatcher 实时驱动。不轮询、不连服务器、不依赖云。会话结束（SessionEnd）CLI 删除状态文件，灯随之熄灭。
 
 ### Hook 状态流
 
@@ -85,6 +82,7 @@ dotnet publish -c Release --self-contained -r win-x64 -o publish/
   → PermissionRequest → confirm → 🔴🟡 红底+黄闪
   → 用户确认 → PostToolUse → done→running → 🔴 红灯
   → Stop → idle → 3s 无新事件 → 🟢 绿灯
+  → 会话结束 SessionEnd → exit → 删除状态文件 → ⚫ 灯灭（v2.0.0）
 ```
 
 > 设计关键：PostToolUse 每次工具完成都触发，但一次回复会连续调多个工具。用 Stop 而非 PostToolUse 判断"真正完成"，避免思考间歇误亮绿灯。
@@ -106,9 +104,11 @@ PreToolUse（工具开始）→ PermissionRequest（弹窗）→ [用户确认]
 
 | 操作 | 效果 |
 |------|------|
-| **左键点击** | 气泡显示运行中的项目数量与列表 |
+| **左键点击托盘** | 弹出运行中项目列表；点菜单外部或再点一次左键即关闭 |
+| 菜单项 **隐藏灯/显示灯** | 灯不显示但项目保留在列表，可随时手动切回 |
+| 菜单项 **关闭并从列表移除** | 灯消失并移出列表，仅当该项目再次 running 时恢复 |
 | **右键菜单** | 切换布局、显示/隐藏全部、开机自启动、退出 |
-| **双击** | 显示/隐藏全部窗口 |
+| **双击灯窗口** | 切换横排/竖排布局 |
 
 ## 卸载
 
@@ -154,7 +154,9 @@ A tiny traffic light overlay on your screen. 🔴 Red = working. 🔴🟡 Red+Ye
 - **Real-time status** — hooks into Claude Code's lifecycle via native hooks, not polling
 - **Multi-project** — one window per project, auto-arranged with offset
 - **Permission alert** — distinct red+yellow blink when Claude needs approval
-- **System tray** — left-click for project list, right-click for config
+- **Extinguish on session end** — listens to `SessionEnd`, light goes off the moment Claude exits (v2.0.0)
+- **Per-project control** — left-click tray for the project list; each project can be **hidden** (light off, stays in list) or **closed & removed** (comes back on next `running`) (v2.0.0)
+- **System tray** — left-click to view/manage projects, right-click for config
 - **Auto-install hooks** — writes to `~/.claude/settings.json` on startup, zero manual config
 - **Double-click** — toggle horizontal/vertical layout
 - **Drag** — move windows anywhere on screen
@@ -178,7 +180,7 @@ Claude Code fires hooks → CLI.exe writes JSON → ~/.claude-lights/
 → FileSystemWatcher monitors in real-time → GUI updates lights
 ```
 
-Four hooks drive the state machine:
+Five hooks (incl. `SessionEnd`) drive the state machine:
 
 | Hook | When | Light |
 |------|------|-------|
@@ -186,6 +188,7 @@ Four hooks drive the state machine:
 | `PostToolUse` | Tool finishes (session continues) | 🔴 Red (stays) |
 | `PermissionRequest` | Permission dialog appears | 🔴🟡 Red+Yellow |
 | `Stop` | Claude finishes responding | ⏱ 3s → 🟢 Green |
+| `SessionEnd` | Session ends | ⚫ Delete state file, light off |
 
 > Key design: PostToolUse fires after every tool, but one response may call many tools. We use Stop, not PostToolUse, to detect "truly done", avoiding false green between tool calls.
 
@@ -206,9 +209,11 @@ This is a Claude Code hook system limitation shared by all similar tools (claude
 
 | Click | Action |
 |-------|--------|
-| **Left-click** | Balloon tip with running project list |
+| **Left-click tray** | Project list popup; closes on outside click or a second left-click |
+| Menu item **Hide/Show light** | Light off but project stays in the list; toggle back anytime |
+| Menu item **Close & remove** | Light gone and removed from list; returns on the next `running` |
 | **Right-click** | Menu: layout, visibility, auto-start, exit |
-| **Double-click** | Show/hide all windows |
+| **Double-click a light window** | Toggle horizontal/vertical layout |
 
 ### Uninstall
 
